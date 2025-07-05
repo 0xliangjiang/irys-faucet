@@ -3,8 +3,6 @@ import requests
 import json
 import time
 import random
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import threading
 
 def load_wallets(filename="wallets.txt"):
     """加载钱包地址列表"""
@@ -116,7 +114,6 @@ def claim_faucet(wallet_address, proxy_config=None):
         if proxy_config:
             proxy_url = f"http://{proxy_config['username']}:{proxy_config['password']}@{proxy_config['ip']}:{proxy_config['port']}"
             session.proxies = {"http": proxy_url, "https": proxy_url}
-            print(f"使用代理: {proxy_config['ip']}:{proxy_config['port']}")
         
         # 发送请求
         response = session.post(
@@ -162,34 +159,42 @@ def main():
     print(f"加载了 {len(wallets)} 个钱包地址")
     print(f"加载了 {len(proxies)} 个代理配置")
     
-    # 如果没有代理，使用None
-    if not proxies:
-        print("警告: 没有代理配置，将直接连接")
-        proxies = [None]
+    # 检查代理数量是否足够
+    if len(proxies) < len(wallets):
+        print(f"警告: 代理数量({len(proxies)})少于钱包数量({len(wallets)})")
+        print("建议添加更多代理或减少钱包数量")
+        return
     
     # 创建结果列表
     results = []
     
-    # 使用线程池处理
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        futures = []
+    # 单线程顺序处理，确保一个钱包对应一个代理
+    for i, wallet in enumerate(wallets):
+        print(f"\n{'='*50}")
+        print(f"处理第 {i+1}/{len(wallets)} 个钱包")
         
-        for i, wallet in enumerate(wallets):
-            # 轮询使用代理
-            proxy = proxies[i % len(proxies)] if proxies else None
-            future = executor.submit(process_wallet, wallet, proxy)
-            futures.append(future)
-            
-            # 添加随机延迟，避免请求过于频繁
-            time.sleep(random.uniform(2, 5))
+        # 每个钱包使用对应的代理
+        proxy = proxies[i] if i < len(proxies) else None
         
-        # 收集结果
-        for future in as_completed(futures):
-            wallet, success, message = future.result()
-            results.append((wallet, success, message))
+        if proxy:
+            print(f"使用代理: {proxy['username']}@{proxy['ip']}:{proxy['port']}")
+            print(f"代理详情: IP={proxy['ip']}, 端口={proxy['port']}, 用户={proxy['username']}")
+        else:
+            print("警告: 没有对应的代理，将直接连接")
+        
+        # 处理钱包
+        wallet, success, message = process_wallet(wallet, proxy)
+        results.append((wallet, success, message))
+        
+        # 添加延迟，避免请求过于频繁
+        if i < len(wallets) - 1:  # 最后一个钱包不需要延迟
+            delay = random.uniform(1, 5)
+            print(f"等待 {delay:.1f} 秒后处理下一个钱包...")
+            time.sleep(delay)
     
     # 打印统计结果
-    print("\n=== 领取结果统计 ===")
+    print(f"\n{'='*50}")
+    print("=== 领取结果统计 ===")
     success_count = sum(1 for _, success, _ in results if success)
     total_count = len(results)
     
@@ -204,9 +209,16 @@ def main():
         f.write(f"时间: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write(f"总计: {total_count}, 成功: {success_count}, 失败: {total_count - success_count}\n\n")
         
-        for wallet, success, message in results:
+        for i, (wallet, success, message) in enumerate(results):
             status = "✅ 成功" if success else "❌ 失败"
-            f.write(f"{status}: {wallet} - {message}\n")
+            if i < len(proxies) and proxies[i]:
+                proxy = proxies[i]
+                proxy_info = f"{proxy['username']}@{proxy['ip']}:{proxy['port']}"
+            else:
+                proxy_info = "无代理"
+            f.write(f"{status}: {wallet} ({proxy_info}) - {message}\n")
+    
+    print(f"\n详细结果已保存到: faucet_results.txt")
 
 if __name__ == "__main__":
     main() 
