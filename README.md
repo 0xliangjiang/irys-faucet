@@ -2,6 +2,8 @@
 
 一个用于自动领取 Irys 测试网代币的批量工具，支持多钱包、多代理轮询，内置完整的浏览器指纹模拟。
 
+本地先部署松鼠大佬的过验证码代码：[https://github.com/0xsongsu/cf-clearance-scraper/tree/main](https://github.com/0xsongsu/cf-clearance-scraper/tree/main)
+
 ## 🌟 功能特点
 
 - **批量处理**：支持多个钱包地址同时处理
