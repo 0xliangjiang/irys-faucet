@@ -1,4 +1,4 @@
-# Irys Faucet Automation Tool
+# Irys Faucet Tool
 
 一个用于自动领取 Irys 测试网代币的批量工具，支持多钱包、多代理轮询，内置完整的浏览器指纹模拟。
 
